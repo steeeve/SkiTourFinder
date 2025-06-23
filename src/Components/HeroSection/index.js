@@ -1,7 +1,9 @@
 import React, {useState} from "react";
 import styled from "styled-components";
 import { MdKeyboardArrowRight, MdArrowForward } from "react-icons/md";
-import { Button } from '../ButtonElement';
+//import { Button } from '../ButtonElement';
+import { ButtonR } from '../ButtonRElement';
+
 
 
 const HeroContainer = styled.div`
@@ -128,7 +130,7 @@ const HeroElements = () => {
                 <VideoBg autoPlay loop muted src='/videos/video2.mp4' type = 'video/mp4' />
             </HeroBg>
             <HeroContent>
-                <HeroH1>Backcountry tours</HeroH1>
+                <HeroH1>Backcountry Objectives</HeroH1>
                 <HeroP>
                     Get out there!
                 </HeroP>
@@ -136,15 +138,15 @@ const HeroElements = () => {
                 <HeroBtnWrapper>
 
                     
-                    <Button 
-                        to="signup" 
+                    <ButtonR 
+                        to="/signup" 
                         onMouseEnter={onHover} 
                         onMouseLeave={onHover}
                         primary='true'
                         dark='true'
                     >
-                        Contact {hover ? <ArrowForward /> : <ArrowRight />}
-                    </Button>
+                        Sign-up {hover ? <ArrowForward /> : <ArrowRight />}
+                    </ButtonR>
                 
 
                 </HeroBtnWrapper>
