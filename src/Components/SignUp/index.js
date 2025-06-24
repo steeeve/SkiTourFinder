@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import supabase from '../../utils/supabaseClient';
 import { ButtonR } from '../ButtonRElement';
 
 const SignUpContainer = styled.div`
@@ -103,6 +104,12 @@ const ErrorMessage = styled.p`
   text-align: center;
 `;
 
+const SuccessMessage = styled.p`
+  color: #01bf71;
+  font-size: 0.9rem;
+  text-align: center;
+`;
+
 const SignUp = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -114,7 +121,7 @@ const SignUp = () => {
         password: '',
     });
     const [error, setError] = useState('');
-
+    const [success, setSuccess] = useState('');
     const [hover, setHover] = useState(false);
   
     const onHover = () => {
@@ -125,14 +132,14 @@ const SignUp = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const { firstName, lastName, email, birthday, ast, password } = formData;
+        // Basic email validation - Client-side
         if (!firstName || !lastName || !email || !birthday || !ast || !password) {
         setError('Please fill in all fields');
         return;
         }
-        // Basic email validation
         if (!/\S+@\S+\.\S+/.test(email)) {
         setError('Please enter a valid email address');
         return;
@@ -148,10 +155,38 @@ const SignUp = () => {
         setError('Password must be at least 6 characters long');
         return;
         }
-        // Simulate API call for sign-up
-        console.log('Sign Up:', formData);
-        setError('');
-        navigate('/'); // Redirect to home after successful sign-up
+        
+        try {
+            // Sign up with Supabase Auth
+            const { error: authError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                data: {
+                    first_name: firstName,
+                    last_name: lastName,
+                    birthday,
+                    ast_level: ast,
+                },
+                emailRedirectTo: 'http://localhost:3000/welcome',
+                },
+            });
+
+            if (authError) {
+                setError(authError.message || 'Sign-up failed');
+                return;
+            }
+
+            setSuccess('Sign-up successful! Check your email to confirm your account.');
+            setError('');
+            setTimeout(() => {
+                navigate('/');
+            }, 3000); // Redirect after 3 seconds
+        } catch (err) {
+            console.error('Sign-up error:', err);
+            setError('Failed to connect to Supabase');
+        }
+
     };
 
   return (
@@ -159,6 +194,7 @@ const SignUp = () => {
       <FormWrapper>
         <FormTitle>Sign Up</FormTitle>
         {error && <ErrorMessage>{error}</ErrorMessage>}
+        {success && <SuccessMessage>{success}</SuccessMessage>}
         <Form onSubmit={handleSubmit}>
           <Input
             type="text"
