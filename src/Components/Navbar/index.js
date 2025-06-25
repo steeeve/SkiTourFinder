@@ -1,11 +1,14 @@
-import React from 'react'
-import {FaBars} from 'react-icons/fa'
-import styled from 'styled-components'
-import { Link as LinkR } from 'react-router-dom'
-import { Link as LinkS } from 'react-scroll'
+import React, { useState, useEffect } from 'react';
+import {FaBars} from 'react-icons/fa';
+import styled from 'styled-components';
+import { Link as LinkR } from 'react-router-dom';
+import { Link as LinkS } from 'react-scroll';
+import supabase from '../../utils/supabaseClient';
+import {animateScroll as scroll} from 'react-scroll';
+
 
 const Nav = styled.nav`
-    background: #000;
+    background: ${({scrollNav}) => (scrollNav ? '#000' : 'transparent')};
     height: 80px;
     margin-top: 0px;
     display: flex;
@@ -15,11 +18,13 @@ const Nav = styled.nav`
     position: sticky;
     top: 0;
     z-index: 10;
+    transition: 0.8s all ease;
+
 
     @ media screen and (max-width: 960px) {
         transition: 0.8s all ease;
     }
-`
+`;
 
 const NavbarContainer = styled.div`
     display: flex;
@@ -29,10 +34,10 @@ const NavbarContainer = styled.div`
     width: 100%;
     padding: 0 24px;
     max-width: 1100px;
-`
+`;
 
 const NavLogo = styled(LinkR)`
-    color: #fff;
+    color: ${({scrollNav}) => (scrollNav ? '#fff' : 'transparent')};
     justify-self: flex-start;
     cursor: pointer;
     font-size: 1.5rem;
@@ -41,11 +46,15 @@ const NavLogo = styled(LinkR)`
     margin-left: 24px;
     font-weight: bold;
     text-decoration: none;
-`
+
+    transition: 0.8s all ease;
+`;
 
 const MobileIcon = styled.div`
     display: none;
     font-size: 2.2rem;
+
+    transition: 0.8s all ease;
 
     @media screen and (max-width: 768px){
         display: block;
@@ -56,27 +65,35 @@ const MobileIcon = styled.div`
         cursor: pointer;
         color: #fff;
         padding: 0px;
+        color: ${({scrollNav}) => (scrollNav ? '#000' : 'transparent')};
+
     }
-`
+`;
 
 const NavMenu = styled.ul`
     display: flex;
     align-items: center;
-    list-style: nonel
+    list-style: none;
     text-align: center;
     margin-right: -22px;
 
     @media screen and (max-width: 768px) {
         display: none
     }
-`
+`;
 
 const NavItem = styled.li`
     height: 80px;
-`
+
+    &:hover {
+        transition: all 0.8s ease-in-out;
+        background: ${({scrollNav}) => (scrollNav ? '#fff000' : 'transparent')};
+        color: #010606;
+    }
+`;
 
 const NavLinks = styled(LinkS)`
-    color: #fff;
+    color: ${({scrollNav}) => (scrollNav ? '#fff' : 'transparent')};
     display: flex;
     align-items: center;
     text-decoration: none;
@@ -84,10 +101,13 @@ const NavLinks = styled(LinkS)`
     height: 100%;
     cursor: pointer;
 
+    transition: color 0.8s ease, border-bottom 0.1s ease;
+
+
     &.active {
-        border-bottom:3px solit #0BF71
+        border-bottom: 3px solid #0BF71
     }
-`
+`;
 
 const NavBtn = styled.nav`
     display: flex;
@@ -96,7 +116,25 @@ const NavBtn = styled.nav`
     @media screen and (max-width: 768px) {
         display: none;
     }
-`
+    
+`;
+
+const NavLinksRouter = styled(LinkR)`
+    color: ${({scrollNav}) => (scrollNav ? '#fff' : 'transparent')};
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    padding: 0 1rem;
+    height: 100%;
+    cursor: pointer;
+
+    transition: color 0.8s ease, border-bottom 0.1s ease;
+
+
+    &.active {
+        border-bottom: 3px solid #0BF71
+    }
+`;
 
 const NavBtnLink = styled (LinkR)`
     border-radius: 50px;
@@ -116,34 +154,126 @@ const NavBtnLink = styled (LinkR)`
         background: #fff;
         color: #010606;
     }
-`
+`;
+
+const SignOutButton = styled.button`
+    border-radius: 50px;
+    background: #01bf71;
+    white-space: nowrap;
+    padding: 10px 22px;
+    color: #010606;
+    font-size: 16px;
+    outline: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    text-decoration: none;
+
+    &:hover {
+        transition: all 0.2s ease-in-out;
+        background: #fff;
+        color: #010606;
+    }
+`;
 
 
 const Navbar = ({toggle}) => {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [scrollNav, setScrollNav] = useState(true);
+    const [first, setfirst] = useState(true);
+
+    useEffect(() => {
+        // Check initial auth state
+        async function checkUser() {
+            const { data: { user } } = await supabase.auth.getUser();
+            setIsAuthenticated(!!user);
+        }
+        checkUser();
+
+        // Listen for auth state changes
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Navbar Auth event:', event, 'Session:', session);
+            setIsAuthenticated(!!session);
+        });
+
+        return () => {
+            authListener.subscription?.unsubscribe();
+        };
+    }, []);
+
+    /*
+    useEffect(() => {
+        window.addEventListener('scroll', changeNav)
+    }, []);
+    */
+    
+    const handleSignOut = async () => {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error('Sign-out error:', error.message);
+        } else {
+            setIsAuthenticated(false);
+        }
+    };
+
+    /*
+    const changeNav = () => {
+        if (window.scrollY >= 99999) {
+            setScrollNav(false);
+        } else {
+            setScrollNav(true);
+        }
+    };*/
+
+    const toggleHome = () => {
+        scroll.scrollToTop();
+    }
+
+    if (first) {
+        setfirst(false);
+        setScrollNav(true);
+    }
+
     return (
     <>
-        <Nav>
+        <Nav scrollNav={scrollNav}>
             <NavbarContainer>
-                <NavLogo to='/'>Ski Tour Finder</NavLogo>
-                <MobileIcon onClick={toggle}>
+                <NavLogo to='/' onClick={toggleHome} scrollNav={scrollNav}>
+                    Ski Tour Finder
+                </NavLogo>
+                <MobileIcon onClick={toggle} scrollNav={scrollNav}>
                     <FaBars />
                 </MobileIcon>
                 <NavMenu>
                     <NavItem>
-                        <NavLinks to = 'about'>About</NavLinks>
+                        <NavLinks to = 'map' smooth={'true'} duration={500} spy={'true'} exact='true' offset={-80} scrollNav={scrollNav}>
+                            Map
+                        </NavLinks>
                     </NavItem>
                     <NavItem>
-                        <NavLinks to = 'discover'>Discover</NavLinks>
+                        <NavLinksRouter to = '/profile' smooth={'true'} duration={500} spy={'true'} exact='true' offset={-80} scrollNav={scrollNav}>
+                            Profile
+                        </NavLinksRouter>
                     </NavItem>
                      <NavItem>
-                        <NavLinks to = 'services'>Services</NavLinks>
+                        <NavLinks to = 'services' smooth={'true'} duration={500} spy={'true'} exact='true' offset={-80} scrollNav={scrollNav}>
+                            Services
+                        </NavLinks>
                     </NavItem>
                      <NavItem>
-                        <NavLinks to = 'contact'>Contact</NavLinks>
+                        <NavLinks to = 'contact' smooth={'true'} duration={500} spy={'true'} exact='true' offset={-80} scrollNav={scrollNav}>
+                            Contact
+                        </NavLinks>
                     </NavItem>
                 </NavMenu>
                 <NavBtn>
-                    <NavBtnLink to="/signin">Sign-In</NavBtnLink>
+                    {isAuthenticated ? (
+                        <SignOutButton onClick={handleSignOut}>
+                            Sign Out
+                        </SignOutButton>
+                    ) : (
+                        <NavBtnLink to="/signin">Sign In</NavBtnLink>
+                    )}
                 </NavBtn>
             </NavbarContainer>
         </Nav>

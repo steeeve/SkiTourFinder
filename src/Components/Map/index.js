@@ -3,19 +3,42 @@ import { Map, NavigationControl, Marker, Popup, Source, Layer } from 'react-map-
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css';
 import styled from "styled-components";
-import markers from './markers';
+//import markers from './markers';
 import { gpx } from '@tmcw/togeojson';
 import { DOMParser } from 'xmldom';
+import supabase from '../../utils/supabaseClient';
+import PartyList from "../PartyList";
+
 
 
 const MapContainer = styled.div`
     padding: 50px;
     background:rgba(8, 47, 54, 0.68);
+    position: relative; /* Establish positioning context for WelcomeMessage */
+`;
+
+const MapInfoContainer = styled.div`
+    margin: 20px auto;
+    position: relative; /* Establish positioning context for WelcomeMessage */
+`;
+
+
+const WelcomeMessage = styled.div`
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: bold;
+    padding: 10px 20px;
+    z-index: 2; /* Increased to ensure it’s above map and controls */
+    gap: 50px;
+
 `;
 
 const MapSplitContainer = styled.div`
     display: flex;
-    margin: 0 auto;
+    margin: 0px auto;
     gap: 10px;
 `
 
@@ -133,13 +156,83 @@ const LegendLabel = styled.span`
     color: #333;
 `;
 
+const ErrorMessage = styled.div`
+    color: #ff4444;
+    font-size: 1rem;
+    text-align: center;
+    margin: 20px;
+`;
 
 const MyMap = () => {
     
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [routeGeoJSON, setRouteGeoJSON] = useState(null);
+    const [firstName, setFirstName] = useState('Guest')
+    const [markers, setMarkers] = useState([]);
+    const [error, setError] = useState(null);
     const mapRef = useRef(null);
     const descRef = useRef(null);
+
+    useEffect(() => {
+        async function fetchMarkers() {
+            console.log('Fetching markers from Supabase');
+            const { data, error } = await supabase
+                .from('locations')
+                .select('location_id, name, longitude, latitude, color, description, image_url, gpx_url, category');
+
+            if (error) {
+                console.error('Fetch markers error:', error);
+                setError(`Failed to load locations: ${error.message}`);
+                return;
+            }
+
+            setMarkers(data.map(item => ({
+                location_id: item.location_id,
+                name: item.name,
+                longitude: item.longitude,
+                latitude: item.latitude,
+                color: item.color,
+                desc: item.description,
+                imageUrl: item.image_url,
+                gpxUrl: item.gpx_url,
+                category: item.category,
+            })));
+        }
+
+        fetchMarkers();
+    }, []);
+
+    useEffect(() => {
+        async function fetchUserData() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('first_name')
+                    .eq('id', user.id)
+                    .single();
+                if (!error && data) {
+                    setFirstName(data.first_name || 'User');
+                }
+            } else {
+                setFirstName('Guest');
+            }
+        }
+
+        fetchUserData();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                fetchUserData();
+            } else if (event === 'SIGNED_OUT') {
+                setFirstName('Guest');
+            }
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
 
     useEffect(() => {
 
@@ -179,7 +272,7 @@ const MyMap = () => {
         e.originalEvent?.stopPropagation();
         setSelectedMarker(marker);
         if (descRef.current) {
-            const offset = 130;
+            const offset = 80;
             const topPos = descRef.current.getBoundingClientRect().top + window.scrollY - offset;
             window.scrollTo({ top: topPos, behavior: 'smooth' });
         }
@@ -191,127 +284,140 @@ const MyMap = () => {
         { color: '#FF0000', category: 'Complex' }
     ];
 
+    if (error) {
+        return <ErrorMessage>{error}</ErrorMessage>;
+    }
+
+
     return (
-        <MapContainer>
+        <MapContainer ref={descRef} id='map'>
+            <WelcomeMessage>Hello, {firstName}!</WelcomeMessage>
+            <MapInfoContainer>
 
-            <MapSplitContainer>
+                <MapSplitContainer>
 
-                <MapDiv ref={descRef}>
+                    <MapDiv>
 
-                    <Map mapLib={maplibregl} 
-                        initialViewState={{
-                        longitude: -116.07128069092865,
-                        latitude: 51.210373839605104,
-                        zoom: 14
-                        }}
-                        style={{width: "100%", height: "100%"}}
-                        mapStyle="https://api.maptiler.com/maps/satellite/style.json?key=KSz6qiEeR6obRJtuqnhn"
-                        onClick = {() => setSelectedMarker(null)}
-                        ref = {mapRef}
-                    >
-                        <NavigationControl position="top-left" />
+                        <Map mapLib={maplibregl} 
+                            initialViewState={{
+                            longitude: -116.07128069092865,
+                            latitude: 51.210373839605104,
+                            zoom: 14
+                            }}
+                            style={{width: "100%", height: "100%"}}
+                            mapStyle="https://api.maptiler.com/maps/satellite/style.json?key=KSz6qiEeR6obRJtuqnhn"
+                            onClick = {() => setSelectedMarker(null)}
+                            ref = {mapRef}
+                        >
+                            <NavigationControl position="top-left" />
 
-                        {routeGeoJSON && (
-                            <>
-                                <Source id="route" type="geojson" data={routeGeoJSON}>
-                                    <Layer
-                                        id="route-layer"
-                                        type="line"
-                                        source="route"
-                                        layout={{
-                                            'line-join': 'round',
-                                            'line-cap': 'round'
-                                        }}
-                                        paint={{
-                                            'line-color': '#007cbf',
-                                            'line-width': 4
-                                        }}
-                                    />
-                                </Source>
-                            </>
-                        )}
+                            {routeGeoJSON && (
+                                <>
+                                    <Source id="route" type="geojson" data={routeGeoJSON}>
+                                        <Layer
+                                            id="route-layer"
+                                            type="line"
+                                            source="route"
+                                            layout={{
+                                                'line-join': 'round',
+                                                'line-cap': 'round'
+                                            }}
+                                            paint={{
+                                                'line-color': '#007cbf',
+                                                'line-width': 4
+                                            }}
+                                        />
+                                    </Source>
+                                </>
+                            )}
 
+                            {markers.map((marker) => (
+                                <Marker
+                                    key={marker.id}
+                                    longitude={marker.longitude}
+                                    latitude={marker.latitude}
+                                    onClick={(e) => handleMarkerClick(e, marker)}
+                                >
+                                    <svg
+                                        height="25"
+                                        width="25"
+                                        viewBox="-12 -12 24 24"
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <circle
+                                            cx="0"
+                                            cy="0"
+                                            r="10"
+                                            fill={marker.color}
+                                            stroke="#000000"
+                                            strokeWidth="2"
+                                        />
+                                    </svg>
+                                </Marker>
+                            ))}
+
+                            {selectedMarker && (
+                                <Popup
+                                    longitude={selectedMarker.longitude}
+                                    latitude={selectedMarker.latitude}
+                                    offset={[0,20]}
+                                    closeButton={false}
+                                    closeOnClick={false}
+                                    anchor="top"
+                                >
+                                    <PopupContent>
+                                        {selectedMarker.name}
+                                    </PopupContent>
+                                </Popup>
+                            )}
+
+                        </Map>
+
+                        <Legend>
+                            {legendItems.map(({ color, category }) => (
+                                <LegendItem key={color}>
+                                    <ColorSwatch style={{ backgroundColor: color }} />
+                                    <LegendLabel>{category}</LegendLabel>
+                                </LegendItem>
+                            ))}
+                        </Legend>
+
+                    </MapDiv>
+
+                    <MarkerList>
                         {markers.map((marker) => (
-                            <Marker
-                                key={marker.id}
-                                longitude={marker.longitude}
-                                latitude={marker.latitude}
+                            <MarkerItem
+                                key = {marker.id}
                                 onClick={(e) => handleMarkerClick(e, marker)}
                             >
-                                <svg
-                                    height="25"
-                                    width="25"
-                                    viewBox="-12 -12 24 24"
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <circle
-                                        cx="0"
-                                        cy="0"
-                                        r="10"
-                                        fill={marker.color}
-                                        stroke="#000000"
-                                        strokeWidth="2"
-                                    />
-                                </svg>
-                            </Marker>
+                                <MarkerItemText>{marker.name}</MarkerItemText>
+                            </MarkerItem>
                         ))}
+                    </MarkerList>
 
-                        {selectedMarker && (
-                            <Popup
-                                longitude={selectedMarker.longitude}
-                                latitude={selectedMarker.latitude}
-                                offset={[0,20]}
-                                closeButton={false}
-                                closeOnClick={false}
-                                anchor="top"
-                            >
-                                <PopupContent>
-                                    {selectedMarker.name}
-                                </PopupContent>
-                            </Popup>
-                        )}
+                </MapSplitContainer>
 
-                    </Map>
+                <PartyList selectedMarker={selectedMarker} />
 
-                    <Legend>
-                        {legendItems.map(({ color, category }) => (
-                            <LegendItem key={color}>
-                                <ColorSwatch style={{ backgroundColor: color }} />
-                                <LegendLabel>{category}</LegendLabel>
-                            </LegendItem>
-                        ))}
-                    </Legend>
+                <MapDescDiv>
+                    <MapHeader>
+                        {selectedMarker ? selectedMarker.name : "Select a marker to view some information about it"}
+                    </MapHeader>
+                    <MapText>
+                        {selectedMarker ? selectedMarker.desc : "Select a marker to view its name"}
+                    </MapText>
 
-                </MapDiv>
+                    {selectedMarker && (
+                        <MapImage
+                            src={selectedMarker.imageUrl}
+                            alt={selectedMarker.name}
+                        />
+                    )}
+                </MapDescDiv>
 
-                <MarkerList>
-                    {markers.map((marker) => (
-                        <MarkerItem
-                            key = {marker.id}
-                            onClick={(e) => handleMarkerClick(e, marker)}
-                        >
-                            <MarkerItemText>{marker.name}</MarkerItemText>
-                        </MarkerItem>
-                    ))}
-                </MarkerList>
-
-            </MapSplitContainer>
-
-            <MapDescDiv>
-                <MapHeader>
-                    {selectedMarker ? selectedMarker.name : "Select a marker to view some information about it"}
-                </MapHeader>
-                <MapText>
-                    {selectedMarker ? selectedMarker.desc : "Select a marker to view its name"}
-                </MapText>
-
-                {selectedMarker && (
-                    <MapImage
-                        src={selectedMarker.imageUrl}
-                        alt={selectedMarker.name}
-                    />
-                )}
-            </MapDescDiv>
+            </MapInfoContainer>
+  
+            
         </MapContainer>
 
     );

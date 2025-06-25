@@ -1,10 +1,9 @@
-import React, {useState} from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { MdKeyboardArrowRight, MdArrowForward } from "react-icons/md";
 //import { Button } from '../ButtonElement';
 import { ButtonR } from '../ButtonRElement';
-
-
+import supabase from '../../utils/supabaseClient';
 
 const HeroContainer = styled.div`
     background: #0c0c0c;
@@ -16,8 +15,7 @@ const HeroContainer = styled.div`
     position: relative;
     z-index: 1;
 
-
-`
+`;
 
 const HeroBg = styled.div`
     position: absolute;
@@ -30,7 +28,7 @@ const HeroBg = styled.div`
     overflow: hidden;
     z-index: 1;
 
-        :before {
+    :before {
         content: '';
         position: absolute;
         top: 0;
@@ -45,8 +43,7 @@ const HeroBg = styled.div`
             linear-gradient(180deg, rgba(0,0,0,0.1) 0%, transparent 100%);
         z-index: 2;
     }
-
-`
+`;
 
 const VideoBg = styled.video`
     width: 100%;
@@ -54,7 +51,7 @@ const VideoBg = styled.video`
     object-fit: cover;
     object-fit: cover;
     background: #232a34;
-`
+`;
 
 const HeroContent = styled.div`
     z-index: 3;
@@ -67,7 +64,7 @@ const HeroContent = styled.div`
     background: transparent;
     opacity: 1;
    
-`
+`;
 
 const HeroH1 = styled.h1`
     color: #ffffff;
@@ -81,7 +78,7 @@ const HeroH1 = styled.h1`
     @media screen and (max-width: 480px) {
         font-size: 32px;
     }
-`
+`;
 
 const HeroP = styled.p`
     margin-top: 24px;
@@ -97,28 +94,50 @@ const HeroP = styled.p`
     @media screen and (max-width: 480px) {
         font-size: 18px;
     }
-`
+`;
 
 const HeroBtnWrapper = styled.div`
     margin-top: 32px;
     display: flex;
     flex-direction: column;
     align-items: center;
-`
+`;
 
 const ArrowForward = styled(MdArrowForward)`
     margin-left: 8px;
     font-size: 20px;
-`
+`;
 
 const ArrowRight = styled(MdKeyboardArrowRight)`
     margin-left: 8px;
     font-size: 20px;
-`
+`;
 
 
 const HeroElements = () => {
     const [hover, setHover] = useState(false);
+
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    useEffect(() => {
+        // Check initial auth state
+        async function checkUser() {
+            const { data: { user } } = await supabase.auth.getUser();
+            setIsAuthenticated(!!user);
+        }
+        checkUser();
+
+        // Listen for auth state changes
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Navbar Auth event:', event, 'Session:', session);
+            setIsAuthenticated(!!session);
+        });
+
+        return () => {
+            authListener.subscription?.unsubscribe();
+        };
+    }, []);
+
 
     const onHover = () => {
         setHover(!hover)
@@ -137,17 +156,17 @@ const HeroElements = () => {
 
                 <HeroBtnWrapper>
 
-                    
-                    <ButtonR 
-                        to="/signup" 
-                        onMouseEnter={onHover} 
-                        onMouseLeave={onHover}
-                        primary='true'
-                        dark='true'
-                    >
-                        Sign-up {hover ? <ArrowForward /> : <ArrowRight />}
-                    </ButtonR>
-                
+                    {!isAuthenticated && 
+                        <ButtonR 
+                            to="/signup" 
+                            onMouseEnter={onHover} 
+                            onMouseLeave={onHover}
+                            primary='true'
+                            dark='true'
+                        >
+                            Sign-up {hover ? <ArrowForward /> : <ArrowRight />}
+                        </ButtonR>
+                    }
 
                 </HeroBtnWrapper>
             </HeroContent>

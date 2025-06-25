@@ -158,23 +158,29 @@ const SignUp = () => {
         
         try {
             // Sign up with Supabase Auth
-            const { error: authError } = await supabase.auth.signUp({
+            const { data, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
-                data: {
-                    first_name: firstName,
-                    last_name: lastName,
-                    birthday,
-                    ast_level: ast,
-                },
-                emailRedirectTo: 'http://localhost:3000/welcome',
+                  data: {
+                      first_name: firstName,
+                      last_name: lastName,
+                      birthday,
+                      ast_level: ast,
+                  },
+                  emailRedirectTo: 'http://localhost:3000/welcome',
                 },
             });
 
             if (authError) {
                 setError(authError.message || 'Sign-up failed');
                 return;
+            }
+
+            const { user } = data;
+            if (!user) {
+              setError('User creation failed. Please try again.');
+              return;
             }
 
             setSuccess('Sign-up successful! Check your email to confirm your account.');
