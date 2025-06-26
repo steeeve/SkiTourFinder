@@ -121,6 +121,8 @@ const Profile = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [hover, setHover] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -130,6 +132,8 @@ const Profile = () => {
                 //setTimeout(() => navigate('/signin'), 2000);
                 return;
             }
+            
+            setIsAuthenticated(true);
 
             const { data, error } = await supabase
                 .from('profiles')
@@ -157,6 +161,15 @@ const Profile = () => {
 
     const onHover = () => {
         setHover(!hover);
+    };
+
+    const handleSignOut = async () => {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error('Sign-out error:', error.message);
+        } else {
+            setIsAuthenticated(false);
+        }
     };
 
     const handleChange = (e) => {
@@ -239,6 +252,7 @@ const Profile = () => {
                 <FormTitle>Edit Profile</FormTitle>
                 {error && <ErrorMessage>{error}</ErrorMessage>}
                 {success && <SuccessMessage>{success}</SuccessMessage>}
+                {isAuthenticated && 
                 <Form onSubmit={handleSubmit}>
                     <Label>First Name</Label>
                     <Input
@@ -284,6 +298,8 @@ const Profile = () => {
                     />
                     <Button type="submit">Save Changes</Button>
                 </Form>
+                }
+
             </FormWrapper>
             <ButtonR
                 to="/"
@@ -294,15 +310,20 @@ const Profile = () => {
             >
                 Home
             </ButtonR>
+
+            {isAuthenticated && 
             <ButtonR
-                to="/signin"
+                to="/"
                 onMouseEnter={onHover}
                 onMouseLeave={onHover}
+                onClick={handleSignOut}
                 primary="true"
                 dark="true"
             >
-                Sign-in
+                Sign Out
             </ButtonR>
+            }
+
             <ButtonR
                 to="/signup"
                 onMouseEnter={onHover}

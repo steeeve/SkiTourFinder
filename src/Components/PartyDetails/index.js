@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 import { useNavigate, useParams } from 'react-router-dom';
 import supabase from '../../utils/supabaseClient';
@@ -6,7 +6,7 @@ import { ButtonR } from '../ButtonRElement';
 
 const PageContainer = styled.div`
     min-height: 100vh;
-    background:rgba(26, 26, 26, 0.78);
+    background: #1a1a1a;
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -56,18 +56,25 @@ const Value = styled.p`
 
 const Button = styled.button`
     border-radius: 50px;
-    background: ${({ primary, danger }) => (danger ? '#ff4444' : primary ? '#01bf71' : '#010606')};
-    padding: 0.75rem;
+    background: ${({ primary, danger }) => (danger ? '#ff4444' : primary ? '#01BF71' : '#010606')};
+    white-space: nowrap;
+    padding: ${({ big }) => (big ? '14px 48px' : '12px 30px')};
     color: ${({ dark }) => (dark ? '#010606' : '#fff')};
-    font-size: 1rem;
-    font-weight: bold;
+    font-size: ${({ fontBig }) => (fontBig ? '20px' : '16px')};
+    outline: none;
     border: none;
     cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     transition: all 0.2s ease-in-out;
-    margin-top: 0.5rem;
+    margin: 0 auto;
+    width: fit-content;
+    margin-bottom: 10px;
 
     &:hover {
-        background: ${({ primary, danger }) => (danger ? '#cc0000' : primary ? '#fff' : '#01bf71')};
+        transition: all 0.2s ease-in-out;
+        background: ${({ primary, danger }) => (danger ? '#cc0000' : primary ? '#fff' : '#01BF71')};
         color: #010606;
     }
 `;
@@ -90,53 +97,350 @@ const SuccessMessage = styled.p`
     transition: opacity 1s ease-out;
 `;
 
+const LoadingMessage = styled.p`
+    color: #aaa;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 1rem;
+`;
+
+const MembersSection = styled.div`
+    width: 100%;
+    margin-bottom: 2rem;
+`;
+
+const MemberList = styled.ul`
+    background: #333;
+    padding: 1rem;
+    border-radius: 5px;
+    list-style: none;
+`;
+
+const MemberItem = styled.li`
+    color: #01bf71;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+`;
+
+const MessageSection = styled.div`
+    width: 100%;
+    margin-top: 2rem;
+`;
+
+const MessageForm = styled.form`
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    margin-bottom: 2rem;
+`;
+
+const Textarea = styled.textarea`
+    padding: 0.75rem;
+    border: none;
+    border-radius: 5px;
+    background: #333;
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+    resize: vertical;
+    min-height: 100px;
+
+    &::placeholder {
+        color: #aaa;
+    }
+`;
+
+const MessageThread = styled.div`
+    width: 100%;
+    margin-top: 10px;
+`;
+
+const Message = styled.div`
+    background: #333;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+`;
+
+const MessageHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+`;
+
+const Author = styled.span`
+    color: #01bf71;
+    font-weight: bold;
+    font-size: 0.9rem;
+`;
+
+const Timestamp = styled.span`
+    color: #aaa;
+    font-size: 0.9rem;
+`;
+
+const MessageContent = styled.p`
+    color: #fff;
+    font-size: 1rem;
+`;
+
+const Modal = styled.div`
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+    background: #333;
+    padding: 1.5rem;
+    border-radius: 10px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+`;
+
+const ModalHeader = styled.h3`
+    color: #fff;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+`;
+
+const ModalBody = styled.p`
+    color: #fff;
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+`;
+
+const ModalFooter = styled.div`
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+`;
+
+const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const day = date.getDate();
+    const month = date.toLocaleString('default', { month: 'long' });
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}, ${month}, ${year}, ${hours}:${minutes}`;
+};
+
 const PartyDetails = () => {
+    console.log('PartyDetails.jsx: Component rendered');
     const { id } = useParams();
     const navigate = useNavigate();
     const [party, setParty] = useState(null);
+    const [members, setMembers] = useState([]);
+    const [messages, setMessages] = useState([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [user, setUser] = useState(null);
+    const [isMember, setIsMember] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [isErrorFading, setIsErrorFading] = useState(false);
     const [isSuccessFading, setIsSuccessFading] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+    const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+
+    const profileCache = useMemo(() => {
+        const cache = new Map();
+        return {
+            get: async (userId) => {
+                if (cache.has(userId)) return cache.get(userId);
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name')
+                    .eq('id', userId)
+                    .single();
+                if (error) {
+                    console.error('PartyDetails.jsx: Fetch profile error:', error);
+                    return 'Unknown User';
+                }
+                const name = `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'Unknown User';
+                cache.set(userId, name);
+                return name;
+            }
+        };
+    }, []);
+
+    const fetchMessages = useCallback(async () => {
+        setIsLoadingMessages(true);
+        console.log('PartyDetails.jsx: Fetching messages for party:', id);
+        const { data, error } = await supabase
+            .from('messages')
+            .select(`
+                id,
+                party_id,
+                user_id,
+                content,
+                created_at
+            `)
+            .eq('party_id', id)
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            console.error('PartyDetails.jsx: Fetch messages error:', error);
+            setError(`Failed to fetch messages: ${error.message}`);
+            setMessages([]);
+            setIsLoadingMessages(false);
+            return;
+        }
+
+        const messagesWithAuthors = await Promise.all(data.map(async (msg) => ({
+            ...msg,
+            author_name: await profileCache.get(msg.user_id)
+        })));
+
+        setMessages(messagesWithAuthors);
+        console.log('PartyDetails.jsx: Messages fetched:', data);
+        setIsLoadingMessages(false);
+    }, [id, profileCache, setError]);
+
+    const fetchMembers = useCallback(async () => {
+        setIsLoadingMembers(true);
+        console.log('PartyDetails.jsx: Fetching members for party:', id);
+        const { data, error } = await supabase
+            .from('party_members')
+            .select('user_id, created_at')
+            .eq('party_id', id)
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            console.error('PartyDetails.jsx: Fetch members error:', error);
+            setError(`Failed to fetch members: ${error.message}`);
+            setMembers([]);
+            setIsLoadingMembers(false);
+            return;
+        }
+
+        const membersWithNames = await Promise.all(data.map(async ({ user_id }) => ({
+            user_id,
+            name: await profileCache.get(user_id)
+        })));
+
+        setMembers(membersWithNames);
+        console.log('PartyDetails.jsx: Members fetched:', data);
+        setIsLoadingMembers(false);
+    }, [id, profileCache, setError]);
+
+    const fetchUser = useCallback(async () => {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+            console.error('PartyDetails.jsx: Fetch user error:', authError);
+            return null;
+        }
+        console.log('PartyDetails.jsx: User fetched:', user ? user.id : 'No user');
+        return user;
+    }, []);
+
+    const fetchParty = useCallback(async () => {
+        console.log('PartyDetails.jsx: Fetching party with id:', id);
+        const { data, error } = await supabase
+            .from('parties')
+            .select(`
+                id,
+                name,
+                leader_id,
+                location_id,
+                trip_date,
+                trip_duration,
+                description
+            `)
+            .eq('id', id);
+
+        if (error) {
+            console.error('PartyDetails.jsx: Fetch party error:', error);
+            setError(`Failed to fetch party: ${error.message}`);
+            return null;
+        }
+
+        if (!data || data.length === 0) {
+            console.error('PartyDetails.jsx: No party found for id:', id);
+            setError('Party not found');
+            return null;
+        }
+
+        const partyData = data[0];
+        const leaderName = await profileCache.get(partyData.leader_id);
+        console.log('PartyDetails.jsx: Party fetched:', partyData);
+        return {
+            ...partyData,
+            leader_name: leaderName
+        };
+    }, [id, profileCache, setError]);
+
+    const checkMembership = useCallback(async (user) => {
+        if (!user) {
+            setIsMember(false);
+            return;
+        }
+        console.log('PartyDetails.jsx: Checking membership for user:', user.id, 'party:', id);
+        const { data, error } = await supabase
+            .from('party_members')
+            .select('user_id')
+            .eq('party_id', id)
+            .eq('user_id', user.id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('PartyDetails.jsx: Check membership error:', error);
+            setError(`Failed to check membership: ${error.message}`);
+            return;
+        }
+
+        setIsMember(!!data);
+        console.log('PartyDetails.jsx: Membership status:', !!data);
+    }, [id, setError]);
 
     useEffect(() => {
-        const fetchParty = async () => {
-            console.log('Fetching party with id:', id);
-            const { data, error } = await supabase
-                .from('parties')
-                .select(`
-                    id,
-                    name,
-                    leader_id,
-                    location_id,
-                    trip_date,
-                    trip_duration,
-                    description,
-                    profiles!parties_leader_id_fkey (
-                        first_name,
-                        last_name
-                    )
-                `)
-                .eq('id', id)
-                .single();
 
-            if (error) {
-                console.error('Fetch party error:', error);
-                setError(`Failed to fetch party: ${error.message}`);
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id)) {
+            setError('Invalid party ID');
+            navigate('/');
+            return;
+        }
+
+        const fetchData = async () => {
+            if (isDeleting) {
+                console.log('PartyDetails.jsx: Skipping fetchData due to deletion in progress');
                 return;
             }
 
-            console.log('Party fetched:', data);
-            setParty({
-                ...data,
-                leader_name: data.profiles
-                    ? `${data.profiles.first_name || ''} ${data.profiles.last_name || ''}`.trim() || 'Unknown Leader'
-                    : 'Unknown Leader'
-            });
+            try {
+                const [userData, partyData] = await Promise.all([fetchUser(), fetchParty()]);
+
+                if (userData) setUser(userData);
+                if (partyData) setParty(partyData);
+                await Promise.all([fetchMembers(), fetchMessages()]);
+                if (userData) await checkMembership(userData);
+
+                if (!partyData) navigate('/');
+            } catch (err) {
+                console.error('PartyDetails.jsx: Unexpected error in fetchData:', err);
+                setError('An unexpected error occurred. Please try again.');
+            }
         };
 
-        fetchParty();
-    }, [id]);
+        fetchData();
+
+    }, [id, fetchUser, fetchParty, fetchMembers, fetchMessages, checkMembership, navigate, isDeleting]);
 
     useEffect(() => {
         if (!error) {
@@ -155,12 +459,12 @@ const PartyDetails = () => {
             setIsSuccessFading(false);
             return;
         }
-        console.log('Success message set:', success);
+        console.log('PartyDetails.jsx: Success message set:', success);
         const timer = setTimeout(() => {
-            console.log('Starting success message fade');
+            console.log('PartyDetails.jsx: Starting success message fade');
             setIsSuccessFading(true);
             setTimeout(() => {
-                console.log('Clearing success message and redirecting');
+                console.log('PartyDetails.jsx: Clearing success message and redirecting');
                 setSuccess('');
                 navigate('/');
             }, 1000);
@@ -170,18 +474,23 @@ const PartyDetails = () => {
 
     const handleDeleteParty = async () => {
         try {
-            console.log('Deleting party with id:', id);
+            console.log('PartyDetails.jsx: Deleting party with id:', id);
+            setIsDeleting(true);
             const { data: { user }, error: authError } = await supabase.auth.getUser();
             if (authError || !user) {
-                console.log('Validation failed: Not authenticated', authError);
+                console.log('PartyDetails.jsx: Validation failed: Not authenticated', authError);
                 setError('You must be logged in to delete a party');
                 navigate('/signin');
+                setIsDeleting(false);
+                setShowDeleteModal(false);
                 return;
             }
 
-            if (party.leader_id !== user.id) {
-                console.log('Validation failed: Not party leader');
+            if (party && party.leader_id !== user.id) {
+                console.log('PartyDetails.jsx: Validation failed: Not party leader');
                 setError('Only the party leader can delete this party');
+                setIsDeleting(false);
+                setShowDeleteModal(false);
                 return;
             }
 
@@ -191,18 +500,97 @@ const PartyDetails = () => {
                 .eq('id', id);
 
             if (deleteError) {
-                console.error('Delete party error:', deleteError);
+                console.error('PartyDetails.jsx: Delete party error:', deleteError);
                 setError(`Failed to delete party: ${deleteError.message}`);
+                setIsDeleting(false);
+                setShowDeleteModal(false);
                 return;
             }
 
-            console.log('Party deleted successfully');
+            console.log('PartyDetails.jsx: Party deleted successfully');
             setSuccess('Party deleted successfully!');
             setError('');
+            setShowDeleteModal(false);
         } catch (err) {
-            console.error('Unexpected error in handleDeleteParty:', err);
+            console.error('PartyDetails.jsx: Unexpected error in handleDeleteParty:', err);
+            setError('An unexpected error occurred. Please try again.');
+            setIsDeleting(false);
+            setShowDeleteModal(false);
+        }
+    };
+
+    const handlePostMessage = async (e) => {
+        e.preventDefault();
+        if (!newMessage.trim()) {
+            setError('Message cannot be empty');
+            return;
+        }
+
+        try {
+            console.log('PartyDetails.jsx: Posting message for party:', id);
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) {
+                console.log('PartyDetails.jsx: Validation failed: Not authenticated', authError);
+                setError('You must be logged in to post a message');
+                navigate('/signin');
+                return;
+            }
+
+            const { error: insertError } = await supabase
+                .from('messages')
+                .insert([{ party_id: id, user_id: user.id, content: newMessage }]);
+
+            if (insertError) {
+                console.error('PartyDetails.jsx: Insert message error:', insertError);
+                setError(`Failed to post message: ${insertError.message}`);
+                return;
+            }
+
+            setNewMessage('');
+            console.log('PartyDetails.jsx: Message posted successfully');
+            await fetchMessages();
+        } catch (err) {
+            console.error('PartyDetails.jsx: Unexpected error in handlePostMessage:', err);
             setError('An unexpected error occurred. Please try again.');
         }
+    };
+
+    const handleJoinParty = async () => {
+        try {
+            console.log('PartyDetails.jsx: Joining party with id:', id);
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) {
+                console.log('PartyDetails.jsx: Validation failed: Not authenticated', authError);
+                setError('You must be logged in to join a party');
+                navigate('/signin');
+                return;
+            }
+
+            const { error: insertError } = await supabase
+                .from('party_members')
+                .insert([{ party_id: id, user_id: user.id }]);
+
+            if (insertError) {
+                console.error('PartyDetails.jsx: Join party error:', insertError);
+                setError(`Failed to join party: ${insertError.message}`);
+                return;
+            }
+
+            setIsMember(true);
+            await fetchMembers();
+            console.log('PartyDetails.jsx: Joined party successfully');
+        } catch (err) {
+            console.error('PartyDetails.jsx: Unexpected error in handleJoinParty:', err);
+            setError('An unexpected error occurred. Please try again.');
+        }
+    };
+
+    const handleShowDeleteModal = () => {
+        setShowDeleteModal(true);
+    };
+
+    const handleCloseDeleteModal = () => {
+        setShowDeleteModal(false);
     };
 
     if (!party) {
@@ -242,15 +630,90 @@ const PartyDetails = () => {
                     <Label>Description</Label>
                     <Value>{party.description || 'No description provided'}</Value>
                 </DetailItem>
+                {user && party.leader_id === user.id && (
+                    <Button type="button" danger="true" dark="true" onClick={handleShowDeleteModal}>
+                        Delete Party
+                    </Button>
+                )}
                 <ButtonR to="/" primary="true" dark="true">
                     Back to Home
                 </ButtonR>
-                <Button type="button" danger="true" dark="true" onClick={handleDeleteParty}>
-                    Delete Party
-                </Button>
+                <MembersSection>
+                    <h3 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '1rem' }}>Members</h3>
+                    {isLoadingMembers ? (
+                        <LoadingMessage>Loading members...</LoadingMessage>
+                    ) : (
+                        <MemberList>
+                            {members.length === 0 ? (
+                                <p style={{ color: '#aaa', textAlign: 'center' }}>No members yet.</p>
+                            ) : (
+                                members.map((member) => (
+                                    <MemberItem key={member.user_id}>{member.name}</MemberItem>
+                                ))
+                            )}
+                        </MemberList>
+                    )}
+                </MembersSection>
+                <MessageSection>
+                    <h3 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '1rem' }}>Messages</h3>
+                    {user && isMember ? (
+                        <MessageForm onSubmit={handlePostMessage}>
+                            <Label>Post a Message</Label>
+                            <Textarea
+                                placeholder="Write your message..."
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                            />
+                            <Button type="submit" primary="true" dark="true">
+                                Post Message
+                            </Button>
+                        </MessageForm>
+                    ) : user ? (
+                        <Button type="button" primary="true" dark="true" onClick={handleJoinParty}>
+                            Join the party to post
+                        </Button>
+                    ) : (
+                        <ButtonR to="/signin" primary="true" dark="true">
+                            Sign in to join
+                        </ButtonR>
+                    )}
+                    <MessageThread>
+                        {isLoadingMessages ? (
+                            <LoadingMessage>Loading messages...</LoadingMessage>
+                        ) : messages.length === 0 ? (
+                            <p style={{ color: '#aaa', textAlign: 'center' }}>No messages yet.</p>
+                        ) : (
+                            messages.map((msg) => (
+                                <Message key={msg.id}>
+                                    <MessageHeader>
+                                        <Author>{msg.author_name}</Author>
+                                        <Timestamp>{formatTimestamp(msg.created_at)}</Timestamp>
+                                    </MessageHeader>
+                                    <MessageContent>{msg.content}</MessageContent>
+                                </Message>
+                            ))
+                        )}
+                    </MessageThread>
+                </MessageSection>
+                {showDeleteModal && (
+                    <Modal>
+                        <ModalContent>
+                            <ModalHeader>Confirm Deletion</ModalHeader>
+                            <ModalBody>Are you sure you want to delete this party?</ModalBody>
+                            <ModalFooter>
+                                <Button type="button" primary="true" dark="true" onClick={handleCloseDeleteModal}>
+                                    Back
+                                </Button>
+                                <Button type="button" danger="true" dark="true" onClick={handleDeleteParty}>
+                                    Delete
+                                </Button>
+                            </ModalFooter>
+                        </ModalContent>
+                    </Modal>
+                )}
             </PartyDetailsContainer>
         </PageContainer>
     );
 };
 
-export default PartyDetails;
+export default React.memo(PartyDetails);

@@ -101,7 +101,7 @@ const DetailsButton = styled(LinkR)`
     }
 `;
 
-
+/*
 const Form = styled.form`
     display: flex;
     gap: 1rem;
@@ -128,6 +128,7 @@ const Input = styled.input`
         color: #aaa;
     }
 `;
+*/
 
 const Message = styled.p`
     color: #ffffff;
@@ -154,9 +155,13 @@ const SuccessMessage = styled.p`
     margin-top: 0.5rem;
 `;
 
+const ButtonR2 = styled(ButtonR)`
+    margin-top: 10px;
+`;
+
 const PartyList = ({ selectedMarker }) => {
     const [parties, setParties] = useState([]);
-    const [newPartyName, setNewPartyName] = useState('');
+    //const [newPartyName, setNewPartyName] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -282,6 +287,7 @@ const PartyList = ({ selectedMarker }) => {
         }
     }, [selectedMarker, isAuthenticated, fetchParties]);
 
+    /*
     const handleCreateParty = async (e) => {
         e.preventDefault();
         if (!newPartyName) {
@@ -322,6 +328,7 @@ const PartyList = ({ selectedMarker }) => {
         setNewPartyName('');
         fetchParties(selectedMarker.location_id); 
     };
+    */
 
     const handleJoinParty = async (partyId, leaderEmail) => {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -438,9 +445,9 @@ const PartyList = ({ selectedMarker }) => {
                 </ButtonR>
             )}
             {!isAuthenticated && (
-                <ButtonR to="/signin" primary="true" dark="true">
+                <ButtonR2 to="/signin" primary="true" dark="true">
                     Sign In to Create/Join Parties
-                </ButtonR>
+                </ButtonR2>
             )}
         </PartyListContainer>
     );
