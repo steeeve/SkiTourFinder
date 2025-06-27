@@ -333,7 +333,7 @@ const MyMap = () => {
 
                             {markers.map((marker) => (
                                 <Marker
-                                    key={marker.id}
+                                    key={marker.location_id}
                                     longitude={marker.longitude}
                                     latitude={marker.latitude}
                                     onClick={(e) => handleMarkerClick(e, marker)}
@@ -387,7 +387,7 @@ const MyMap = () => {
                     <MarkerList>
                         {markers.map((marker) => (
                             <MarkerItem
-                                key = {marker.id}
+                                key = {marker.location_id}
                                 onClick={(e) => handleMarkerClick(e, marker)}
                             >
                                 <MarkerItemText>{marker.name}</MarkerItemText>

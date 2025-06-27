@@ -257,6 +257,7 @@ const PartyDetails = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+    const [isAuthChecked, setIsAuthChecked] = useState(false);
 
     const profileCache = useMemo(() => {
         const cache = new Map();
@@ -310,7 +311,7 @@ const PartyDetails = () => {
         setMessages(messagesWithAuthors);
         console.log('PartyDetails.jsx: Messages fetched:', data);
         setIsLoadingMessages(false);
-    }, [id, profileCache, setError]);
+    }, [id, profileCache]);
 
     const fetchMembers = useCallback(async () => {
         setIsLoadingMembers(true);
@@ -337,15 +338,17 @@ const PartyDetails = () => {
         setMembers(membersWithNames);
         console.log('PartyDetails.jsx: Members fetched:', data);
         setIsLoadingMembers(false);
-    }, [id, profileCache, setError]);
+    }, [id, profileCache]);
 
     const fetchUser = useCallback(async () => {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError) {
-            console.error('PartyDetails.jsx: Fetch user error:', authError);
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) {
+            console.log('PartyDetails.jsx: No user session, proceeding as unauthenticated');
+            setIsAuthChecked(true);
             return null;
         }
         console.log('PartyDetails.jsx: User fetched:', user ? user.id : 'No user');
+        setIsAuthChecked(true);
         return user;
     }, []);
 
@@ -383,7 +386,7 @@ const PartyDetails = () => {
             ...partyData,
             leader_name: leaderName
         };
-    }, [id, profileCache, setError]);
+    }, [id, profileCache]);
 
     const checkMembership = useCallback(async (user) => {
         if (!user) {
@@ -406,10 +409,9 @@ const PartyDetails = () => {
 
         setIsMember(!!data);
         console.log('PartyDetails.jsx: Membership status:', !!data);
-    }, [id, setError]);
+    }, [id]);
 
     useEffect(() => {
-
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
             setError('Invalid party ID');
@@ -426,12 +428,15 @@ const PartyDetails = () => {
             try {
                 const [userData, partyData] = await Promise.all([fetchUser(), fetchParty()]);
 
-                if (userData) setUser(userData);
-                if (partyData) setParty(partyData);
+                if (!partyData) {
+                    navigate('/');
+                    return;
+                }
+
+                setParty(partyData);
+                setUser(userData);
                 await Promise.all([fetchMembers(), fetchMessages()]);
                 if (userData) await checkMembership(userData);
-
-                if (!partyData) navigate('/');
             } catch (err) {
                 console.error('PartyDetails.jsx: Unexpected error in fetchData:', err);
                 setError('An unexpected error occurred. Please try again.');
@@ -439,7 +444,6 @@ const PartyDetails = () => {
         };
 
         fetchData();
-
     }, [id, fetchUser, fetchParty, fetchMembers, fetchMessages, checkMembership, navigate, isDeleting]);
 
     useEffect(() => {
@@ -473,20 +477,26 @@ const PartyDetails = () => {
     }, [success, navigate]);
 
     const handleDeleteParty = async () => {
+        if (!user) {
+            setError('You must be signed in to delete a party');
+            navigate('/signin');
+            return;
+        }
+
         try {
             console.log('PartyDetails.jsx: Deleting party with id:', id);
             setIsDeleting(true);
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-            if (authError || !user) {
+            const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+            if (authError || !currentUser) {
                 console.log('PartyDetails.jsx: Validation failed: Not authenticated', authError);
-                setError('You must be logged in to delete a party');
+                setError('You must be signed in to delete a party');
                 navigate('/signin');
                 setIsDeleting(false);
                 setShowDeleteModal(false);
                 return;
             }
 
-            if (party && party.leader_id !== user.id) {
+            if (party && party.leader_id !== currentUser.id) {
                 console.log('PartyDetails.jsx: Validation failed: Not party leader');
                 setError('Only the party leader can delete this party');
                 setIsDeleting(false);
@@ -521,6 +531,12 @@ const PartyDetails = () => {
 
     const handlePostMessage = async (e) => {
         e.preventDefault();
+        if (!user) {
+            setError('You must be signed in to post a message');
+            navigate('/signin');
+            return;
+        }
+
         if (!newMessage.trim()) {
             setError('Message cannot be empty');
             return;
@@ -528,17 +544,17 @@ const PartyDetails = () => {
 
         try {
             console.log('PartyDetails.jsx: Posting message for party:', id);
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-            if (authError || !user) {
+            const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+            if (authError || !currentUser) {
                 console.log('PartyDetails.jsx: Validation failed: Not authenticated', authError);
-                setError('You must be logged in to post a message');
+                setError('You must be signed in to post a message');
                 navigate('/signin');
                 return;
             }
 
             const { error: insertError } = await supabase
                 .from('messages')
-                .insert([{ party_id: id, user_id: user.id, content: newMessage }]);
+                .insert([{ party_id: id, user_id: currentUser.id, content: newMessage }]);
 
             if (insertError) {
                 console.error('PartyDetails.jsx: Insert message error:', insertError);
@@ -556,19 +572,25 @@ const PartyDetails = () => {
     };
 
     const handleJoinParty = async () => {
+        if (!user) {
+            setError('You must be signed in to join a party');
+            navigate('/signin');
+            return;
+        }
+
         try {
             console.log('PartyDetails.jsx: Joining party with id:', id);
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-            if (authError || !user) {
+            const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+            if (authError || !currentUser) {
                 console.log('PartyDetails.jsx: Validation failed: Not authenticated', authError);
-                setError('You must be logged in to join a party');
+                setError('You must be signed in to join a party');
                 navigate('/signin');
                 return;
             }
 
             const { error: insertError } = await supabase
                 .from('party_members')
-                .insert([{ party_id: id, user_id: user.id }]);
+                .insert([{ party_id: id, user_id: currentUser.id }]);
 
             if (insertError) {
                 console.error('PartyDetails.jsx: Join party error:', insertError);
@@ -586,12 +608,27 @@ const PartyDetails = () => {
     };
 
     const handleShowDeleteModal = () => {
+        if (!user) {
+            setError('You must be signed in to delete a party');
+            navigate('/signin');
+            return;
+        }
         setShowDeleteModal(true);
     };
 
     const handleCloseDeleteModal = () => {
         setShowDeleteModal(false);
     };
+
+    if (!isAuthChecked) {
+        return (
+            <PageContainer>
+                <PartyDetailsContainer>
+                    <Title>Loading...</Title>
+                </PartyDetailsContainer>
+            </PageContainer>
+        );
+    }
 
     if (!party) {
         return (
@@ -656,25 +693,27 @@ const PartyDetails = () => {
                 </MembersSection>
                 <MessageSection>
                     <h3 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '1rem' }}>Messages</h3>
-                    {user && isMember ? (
-                        <MessageForm onSubmit={handlePostMessage}>
-                            <Label>Post a Message</Label>
-                            <Textarea
-                                placeholder="Write your message..."
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                            />
-                            <Button type="submit" primary="true" dark="true">
-                                Post Message
+                    {user ? (
+                        isMember ? (
+                            <MessageForm onSubmit={handlePostMessage}>
+                                <Label>Post a Message</Label>
+                                <Textarea
+                                    placeholder="Write your message..."
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                />
+                                <Button type="submit" primary="true" dark="true">
+                                    Post Message
+                                </Button>
+                            </MessageForm>
+                        ) : (
+                            <Button type="button" primary="true" dark="true" onClick={handleJoinParty}>
+                                Join the party to post
                             </Button>
-                        </MessageForm>
-                    ) : user ? (
-                        <Button type="button" primary="true" dark="true" onClick={handleJoinParty}>
-                            Join the party to post
-                        </Button>
+                        )
                     ) : (
                         <ButtonR to="/signin" primary="true" dark="true">
-                            Sign in to join
+                            Sign in to join or post
                         </ButtonR>
                     )}
                     <MessageThread>

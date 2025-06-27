@@ -12,6 +12,12 @@ export const sendEmail = async (to, subject, text) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
         },
+        auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        storage: localStorage,
+        detectSessionInUrl: true
+        },
         body: JSON.stringify({ to, subject, text }),
     });
     return response.json();
