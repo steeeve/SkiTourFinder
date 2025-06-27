@@ -254,16 +254,6 @@ const Navbar = ({ toggle }) => {
                 Profile
               </NavLinksRouter>
             </NavItem>
-            <NavItem>
-              <NavLinks to="services" smooth="true" duration={500} spy="true" exact="true" offset={-80} scrollNav={scrollNav}>
-                Services
-              </NavLinks>
-            </NavItem>
-            <NavItem>
-              <NavLinks to="contact" smooth="true" duration={500} spy="true" exact="true" offset={-80} scrollNav={scrollNav}>
-                Contact
-              </NavLinks>
-            </NavItem>
           </NavMenu>
           <NavBtn>
             {isAuthenticated ? (
