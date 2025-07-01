@@ -435,14 +435,14 @@ const PartyList = ({ selectedMarker }) => {
                 </PartyListWrapper>
             )}
             {isAuthenticated && (
-                <ButtonR
+                <ButtonR2
                     to="/createparty"
                     primary="true"
                     dark="true"
                     state={{ selectedMarker }}
                 >
                     Create Party
-                </ButtonR>
+                </ButtonR2>
             )}
             {!isAuthenticated && (
                 <ButtonR2 to="/signin" primary="true" dark="true">
