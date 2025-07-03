@@ -119,6 +119,7 @@ const SignUp = () => {
         birthday: '',
         ast: '',
         password: '',
+        confirmPassword: '',
     });
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -134,9 +135,9 @@ const SignUp = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const { firstName, lastName, email, birthday, ast, password } = formData;
+        const { firstName, lastName, email, birthday, ast, password, confirmPassword } = formData;
         // Basic email validation - Client-side
-        if (!firstName || !lastName || !email || !birthday || !ast || !password) {
+        if (!firstName || !lastName || !email || !birthday || !ast || !password || !confirmPassword) {
         setError('Please fill in all fields');
         return;
         }
@@ -153,6 +154,10 @@ const SignUp = () => {
         }
         if (password.length < 6) {
         setError('Password must be at least 6 characters long');
+        return;
+        }
+        if (password !== confirmPassword) {
+        setError('Passwords do not match');
         return;
         }
         
@@ -229,6 +234,14 @@ const SignUp = () => {
             name="password"
             placeholder="Password"
             value={formData.password}
+            onChange={handleChange}
+          />
+
+          <Input
+            type="password"
+            name="confirmPassword"
+            placeholder="Confirm Password"
+            value={formData.confirmPassword}
             onChange={handleChange}
           />
 
