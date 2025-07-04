@@ -56,19 +56,18 @@ const MobileIcon = styled.div.withConfig({
   shouldForwardProp: (prop) => !['scrollNav'].includes(prop)
 })`
   display: none;
-  font-size: 2.2rem;
+  font-size: 1.5rem;
   transition: 0.8s all ease;
 
   @media screen and (max-width: 768px) {
     display: block;
     position: absolute;
-    top: 20px;
-    right: 20px;
-    transform: translate(-100%, 60%);
+    top: 50%;
+    right: 24px;
+    transform: translateY(-50%);
     cursor: pointer;
     color: #fff;
     padding: 0px;
-    color: ${({ scrollNav }) => (scrollNav ? '#000' : 'transparent')};
   }
 `;
 
@@ -110,6 +109,8 @@ const NavLinks = styled(LinkS).withConfig({
     border-bottom: 3px solid #0BF71;
   }
 `;
+
+
 
 const NavLinksRouter = styled(LinkR).withConfig({
   shouldForwardProp: (prop) => !['scrollNav', 'smooth', 'duration', 'spy', 'exact', 'offset'].includes(prop)
@@ -228,6 +229,15 @@ const Navbar = ({ toggle }) => {
     scroll.scrollToTop();
   };
 
+  const scrollToMap = () => {
+    const element = document.getElementById('map');
+    if (element) {
+      const offset = 80;
+      const topPos = element.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: topPos, behavior: 'smooth' });
+    }
+  };
+
   if (first) {
     setfirst(false);
     setScrollNav(true);
@@ -245,7 +255,7 @@ const Navbar = ({ toggle }) => {
           </MobileIcon>
           <NavMenu>
             <NavItem>
-              <NavLinks to="map" smooth="true" duration={500} spy="true" exact="true" offset={-80} scrollNav={scrollNav}>
+              <NavLinks scrollNav={scrollNav} onClick={scrollToMap}>
                 Map
               </NavLinks>
             </NavItem>

@@ -177,6 +177,15 @@ const SignIn = () => {
       >
           Home
       </ButtonR>
+      <ButtonR 
+          to="/signup" 
+          onMouseEnter={onHover} 
+          onMouseLeave={onHover}
+          primary='true'
+          dark='true'
+      >
+          Sign Up
+      </ButtonR>
     </SignInContainer>
   );
 };

@@ -68,6 +68,24 @@ export const SidebarLink = styled(LinkS)`
   }
 `;
 
+export const SidebarLinkR = styled(LinkR)`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  text-decoration: none;
+  list-style: none;
+  transition: 0.2s ease-in-out;
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    color: #01bf71;
+    transition: 0.2s ease-in-out;
+  }
+`;
+
+
 const SideBtnWrap = styled.div`
   display: flex;
   justify-content: center;
@@ -93,6 +111,7 @@ const SidebarRoute = styled(LinkR)`
   }
 `;
 
+
 const Sidebar = ({ isOpen, toggle }) => {
   return (
     <SidebarContainer isOpen={isOpen}>
@@ -101,10 +120,8 @@ const Sidebar = ({ isOpen, toggle }) => {
       </Icon>
       <SidebarWrapper>
         <SidebarMenu>
-          <SidebarLink to="about" onClick={toggle}>About</SidebarLink>
-          <SidebarLink to="discover" onClick={toggle}>Discover</SidebarLink>
-          <SidebarLink to="services" onClick={toggle}>Services</SidebarLink>
-          <SidebarLink to="signup" onClick={toggle}>Sign-up</SidebarLink>
+          <SidebarLink to="map" smooth="true" duration={500} spy="true" exact="true" offset={-80} onClick={toggle}>Map</SidebarLink>
+          <SidebarLinkR to="/profile" onClick={toggle}>Profile</SidebarLinkR>
         </SidebarMenu>
         <SideBtnWrap>
           <SidebarRoute to="/signin" onClick={toggle}>Sign In</SidebarRoute>

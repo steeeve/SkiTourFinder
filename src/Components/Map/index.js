@@ -40,6 +40,7 @@ const MapSplitContainer = styled.div`
     display: flex;
     margin: 0px auto;
     gap: 10px;
+    position: relative;
 `
 
 const MapDescDiv = styled.div`
@@ -52,27 +53,58 @@ const MapDescDiv = styled.div`
 `;
 
 const MapDiv = styled.div`
-    flex: 3;
+    width: 100%;
     text-align: center;
-    width: 99%;
-    //max-width: 1000px;
     aspect-ratio: 4/3;
     max-height: 600px;
     margin: 0 auto;
     border: 2px solid black;
     box-sizing: border-box;
     position: relative;
-
 `;
 
-const MarkerList = styled.div`
-    flex: 1;
-    max-height: 600px;
+const DropdownButton = styled.button`
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: rgba(255, 255, 255, 1);
+    }
+`;
+
+const DropdownIcon = styled.span`
+    transition: transform 0.2s ease;
+    transform: ${({ isOpen }) => isOpen ? 'rotate(180deg)' : 'rotate(0deg)'};
+`;
+
+const DropdownList = styled.div`
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    width: 33%;
+    max-height: 400px;
     overflow-y: auto;
-    background: #fff;
-    border: 2px solid black;
-    box-sizing: border-box;
-    padding: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+    opacity: ${({ isOpen }) => isOpen ? '1' : '0'};
+    visibility: ${({ isOpen }) => isOpen ? 'visible' : 'hidden'};
+    transition: all 0.3s ease;
+    transform: ${({ isOpen }) => isOpen ? 'translateY(0)' : 'translateY(-10px)'};
 `;
 
 const MarkerItem = styled.div`
@@ -170,6 +202,7 @@ const MyMap = () => {
     const [firstName, setFirstName] = useState('Guest')
     const [markers, setMarkers] = useState([]);
     const [error, setError] = useState(null);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const mapRef = useRef(null);
     const descRef = useRef(null);
 
@@ -297,6 +330,24 @@ const MyMap = () => {
                 <MapSplitContainer>
 
                     <MapDiv>
+                        <DropdownButton onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
+                            Locations
+                            <DropdownIcon isOpen={isDropdownOpen}>▼</DropdownIcon>
+                        </DropdownButton>
+
+                        <DropdownList isOpen={isDropdownOpen}>
+                            {markers.map((marker) => (
+                                <MarkerItem
+                                    key={marker.location_id}
+                                    onClick={(e) => {
+                                        handleMarkerClick(e, marker);
+                                        setIsDropdownOpen(false);
+                                    }}
+                                >
+                                    <MarkerItemText>{marker.name}</MarkerItemText>
+                                </MarkerItem>
+                            ))}
+                        </DropdownList>
 
                         <Map mapLib={maplibregl} 
                             initialViewState={{
@@ -383,17 +434,6 @@ const MyMap = () => {
                         </Legend>
 
                     </MapDiv>
-
-                    <MarkerList>
-                        {markers.map((marker) => (
-                            <MarkerItem
-                                key = {marker.location_id}
-                                onClick={(e) => handleMarkerClick(e, marker)}
-                            >
-                                <MarkerItemText>{marker.name}</MarkerItemText>
-                            </MarkerItem>
-                        ))}
-                    </MarkerList>
 
                 </MapSplitContainer>
 
